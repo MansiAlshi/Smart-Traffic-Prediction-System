@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Weekly Traffic Report - Smart Traffic AI{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h2 class="mb-0"><i class="bi bi-bar-chart-line me-2"></i>Weekly Traffic Report</h2>
+    <span class="text-muted small">Last 7 days of your predictions</span>
+</div>
+
+<!-- Summary Stats -->
+<div class="row g-3 mb-4" id="reportStats">
+    <div class="col-md-3">
+        <div class="card shadow-sm text-center p-3">
+            <div class="stat-value text-primary" id="rptTotal">-</div>
+            <div class="text-muted">Total Predictions</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm text-center p-3">
+            <div class="stat-value text-success" id="rptLow">-</div>
+            <div class="text-muted">Low Congestion</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm text-center p-3">
+            <div class="stat-value text-warning" id="rptMed">-</div>
+            <div class="text-muted">Medium Congestion</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm text-center p-3">
+            <div class="stat-value text-danger" id="rptHigh">-</div>
+            <div class="text-muted">High Congestion</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Daily Bar Chart -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white fw-semibold">Daily Prediction Activity</div>
+            <div class="card-body">
+                <canvas id="weeklyChart" height="200"></canvas>
+                <p id="noChartData" class="text-center text-muted mt-3 d-none">No prediction data in the last 7 days.</p>
+            </div>
+        </div>
+    </div>
+    <!-- Congestion Donut -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white fw-semibold">Congestion Distribution</div>
+            <div class="card-body d-flex align-items-center justify-content-center">
+                <canvas id="donutChart" height="220"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top Routes -->
+<div class="card shadow-sm">
+    <div class="card-header bg-white fw-semibold">Top Routes This Week</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead><tr><th>#</th><th>Source</th><th>Destination</th><th>Trips</th></tr></thead>
+                <tbody id="topRoutesTable">
+                    <tr><td colspan="4" class="text-center text-muted">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const data = await apiGet('/api/analytics/weekly-report');
+        if (!data.success) {
+            showToast(data.message || 'Failed to load report', 'danger');
+            return;
+        }
+
+        // Stats
+        const total = data.daily_data.reduce((s, d) => s + d.total, 0);
+        let low = 0, med = 0, high = 0;
+        data.congestion_distribution.forEach(c => {
+            if (c.predicted_congestion === 'Low')    low  = c.count;
+            if (c.predicted_congestion === 'Medium') med  = c.count;
+            if (c.predicted_congestion === 'High')   high = c.count;
+        });
+        document.getElementById('rptTotal').textContent = total;
+        document.getElementById('rptLow').textContent   = low;
+        document.getElementById('rptMed').textContent   = med;
+        document.getElementById('rptHigh').textContent  = high;
+
+        // Bar chart
+        if (data.daily_data.length === 0) {
+            document.getElementById('noChartData').classList.remove('d-none');
+        } else {
+            new Chart(document.getElementById('weeklyChart'), {
+                type: 'bar',
+                data: {
+                    labels: data.daily_data.map(d => d.date),
+                    datasets: [
+                        { label: 'Low',    data: data.daily_data.map(d => d.low_count),    backgroundColor: '#198754' },
+                        { label: 'Medium', data: data.daily_data.map(d => d.medium_count), backgroundColor: '#ffc107' },
+                        { label: 'High',   data: data.daily_data.map(d => d.high_count),   backgroundColor: '#dc3545' }
+                    ]
+                },
+                options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+            });
+        }
+
+        // Donut chart
+        new Chart(document.getElementById('donutChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Low', 'Medium', 'High'],
+                datasets: [{ data: [low, med, high], backgroundColor: ['#198754', '#ffc107', '#dc3545'], borderWidth: 2 }]
+            },
+            options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+        });
+
+        // Top routes
+        const tbody = document.getElementById('topRoutesTable');
+        if (!data.top_routes.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No route data yet.</td></tr>';
+        } else {
+            tbody.innerHTML = data.top_routes.map((r, i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td>${r.source_location}</td>
+                    <td>${r.destination_location}</td>
+                    <td><span class="badge bg-primary">${r.count}</span></td>
+                </tr>
+            `).join('');
+        }
+    } catch (err) {
+        showToast('Failed to load weekly report', 'danger');
+    }
+});
+</script>
+{% endblock %}

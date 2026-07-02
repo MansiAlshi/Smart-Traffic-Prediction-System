@@ -1,0 +1,101 @@
+{
+  "accuracy": 0.876,
+  "precision": 0.8748487821574037,
+  "recall": 0.876,
+  "f1_score": 0.8751038184710535,
+  "confusion_matrix": [
+    [
+      1050,
+      0,
+      60
+    ],
+    [
+      0,
+      753,
+      101
+    ],
+    [
+      107,
+      104,
+      825
+    ]
+  ],
+  "classification_report": {
+    "High": {
+      "precision": 0.9075194468452895,
+      "recall": 0.9459459459459459,
+      "f1-score": 0.9263343625937362,
+      "support": 1110.0
+    },
+    "Low": {
+      "precision": 0.8786464410735122,
+      "recall": 0.8817330210772834,
+      "f1-score": 0.880187025131502,
+      "support": 854.0
+    },
+    "Medium": {
+      "precision": 0.8367139959432048,
+      "recall": 0.7963320463320464,
+      "f1-score": 0.8160237388724035,
+      "support": 1036.0
+    },
+    "accuracy": 0.876,
+    "macro avg": {
+      "precision": 0.8742932946206688,
+      "recall": 0.8746703377850918,
+      "f1-score": 0.8741817088658806,
+      "support": 3000.0
+    },
+    "weighted avg": {
+      "precision": 0.8748487821574037,
+      "recall": 0.876,
+      "f1-score": 0.8751038184710535,
+      "support": 3000.0
+    }
+  },
+  "best_params": {
+    "learning_rate": 0.1,
+    "max_depth": 4,
+    "n_estimators": 200,
+    "subsample": 0.8
+  },
+  "feature_names": [
+    "city",
+    "weather_condition",
+    "road_type",
+    "temperature",
+    "visibility",
+    "festival_indicator",
+    "peak_hour_indicator",
+    "num_lanes",
+    "traffic_density",
+    "hour",
+    "day",
+    "month",
+    "is_weekend",
+    "weather_severity",
+    "festival_impact"
+  ],
+  "classes": [
+    "High",
+    "Low",
+    "Medium"
+  ],
+  "feature_importance": {
+    "city": 0.008687813766300678,
+    "weather_condition": 0.04823710769414902,
+    "road_type": 0.07682602107524872,
+    "temperature": 0.010096350684762001,
+    "visibility": 0.013845337554812431,
+    "festival_indicator": 0.027242062613368034,
+    "peak_hour_indicator": 0.441725492477417,
+    "num_lanes": 0.0689852312207222,
+    "traffic_density": 0.04012516885995865,
+    "hour": 0.009770643897354603,
+    "day": 0.008542237803339958,
+    "month": 0.00841636210680008,
+    "is_weekend": 0.05872511863708496,
+    "weather_severity": 0.17877499759197235,
+    "festival_impact": 0.0
+  }
+}

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Travel History - Smart Traffic AI{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Travel History &amp; Saved Routes</h2>
+
+<ul class="nav nav-tabs mb-4" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#historyTab">Travel History</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#savedTab">Saved Routes</button></li>
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane fade show active" id="historyTab">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-4">
+                        <span class="fw-semibold">Travel History</span>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control form-control-sm" id="historySearch"
+                               placeholder="Search source / destination...">
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select form-select-sm" id="historyFilter">
+                            <option value="">All Congestion</option>
+                            <option value="Low">Low</option>
+                            <option value="Medium">Medium</option>
+                            <option value="High">High</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 text-end d-flex gap-2 justify-content-end">
+                        <button class="btn btn-sm btn-outline-success" id="exportPdfBtn" type="button">
+                            <i class="bi bi-file-earmark-pdf"></i> Export PDF
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" id="clearHistoryBtn" type="button">
+                            Clear All
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="historyTableEl">
+                        <thead>
+                            <tr>
+                                <th>Date</th><th>Source</th><th>Destination</th><th>Route</th>
+                                <th>Congestion</th><th>Risk</th><th>Difficulty</th><th>Distance</th><th>Time</th><th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTable">
+                            <tr><td colspan="10" class="text-center text-muted">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="tab-pane fade" id="savedTab">
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr><th>Name</th><th>Source</th><th>Destination</th><th>Preferred Route</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="savedRoutesTable">
+                            <tr><td colspan="5" class="text-center text-muted">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/history.js') }}"></script>
+{% endblock %}

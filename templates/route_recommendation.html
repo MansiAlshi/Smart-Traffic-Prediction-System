@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Route Recommendation - Smart Traffic AI{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Smart Route Recommendation</h2>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold">Plan Your Route</div>
+            <div class="card-body">
+                <form id="routeForm">
+                    <div class="mb-3">
+                        <label class="form-label">Source</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="source" placeholder="e.g. Mumbai" required
+                                   list="cityList">
+                            <button type="button" class="btn btn-outline-info" id="routeLocBtn" title="Use my location">
+                                <i class="bi bi-geo-alt-fill"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="routeSwapBtn" title="Swap source and destination">
+                                <i class="bi bi-arrow-down-up"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Destination</label>
+                        <input type="text" class="form-control" name="destination" placeholder="e.g. Pune" required
+                               list="cityList">
+                    </div>
+                    <datalist id="cityList">
+                        <option value="Mumbai"><option value="Delhi"><option value="Bangalore">
+                        <option value="Hyderabad"><option value="Chennai"><option value="Kolkata">
+                        <option value="Pune"><option value="Ahmedabad"><option value="Jaipur">
+                        <option value="Lucknow"><option value="Chandigarh"><option value="Kochi">
+                        <option value="Kalyan"><option value="Murbad"><option value="Thane">
+                        <option value="Navi Mumbai"><option value="Nashik"><option value="Lonavala">
+                    </datalist>
+                    <div class="mb-3">
+                        <label class="form-label">Weather</label>
+                        <div class="input-group">
+                            <select class="form-select" name="weather_condition">
+                                <option>Clear</option><option>Cloudy</option><option>Rain</option>
+                                <option>Fog</option><option>Storm</option>
+                            </select>
+                            <button type="button" class="btn btn-outline-info" id="routeWeatherBtn" title="Auto-detect weather">
+                                <i class="bi bi-cloud-sun"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="peak_hour_indicator" id="routePeak" checked>
+                        <label class="form-check-label" for="routePeak">Peak Hour Travel</label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="festival_indicator" id="routeFestival">
+                        <label class="form-check-label" for="routeFestival">Festival Period</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-signpost-split"></i> Find Best Route
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div id="saveRoutePanel" class="card shadow-sm mt-3 d-none">
+            <div class="card-body d-flex gap-2">
+                <button class="btn btn-outline-success flex-fill" id="saveRouteBtn">
+                    <i class="bi bi-bookmark-plus"></i> Save Route
+                </button>
+                <button class="btn btn-outline-primary flex-fill" id="shareRouteBtn">
+                    <i class="bi bi-share"></i> Share Route
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div id="routeResults" class="d-none">
+            <div class="alert alert-success" id="recommendationAlert"></div>
+
+            <div class="row g-3 mb-4" id="routeCards"></div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white fw-semibold">Route Map</div>
+                <div class="card-body p-2">
+                    <div class="route-map-wrap rounded">
+                        <div id="routeMap" class="map-container rounded"></div>
+
+                        <div id="navBanner" class="nav-banner d-none">
+                            <div class="nav-banner-main">
+                                <div class="nav-banner-icon"><i class="bi bi-arrow-up"></i></div>
+                                <div class="nav-banner-text">
+                                    <div class="nav-banner-primary" id="navPrimary">-</div>
+                                    <div class="nav-banner-secondary text-white-50" id="navSecondary">-</div>
+                                </div>
+                            </div>
+                            <div class="nav-banner-actions">
+                                <button class="btn btn-sm btn-light" id="navPrev" type="button">Prev</button>
+                                <button class="btn btn-sm btn-light" id="navNext" type="button">Next</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white fw-semibold">Turn-by-Turn Directions</div>
+                <div class="card-body">
+                    <ul class="nav nav-pills mb-3" id="directionTabs" role="tablist"></ul>
+                    <div class="tab-content" id="directionPanels"></div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-white fw-semibold">Smart Travel Suggestions</div>
+                <div class="card-body">
+                    <ul id="routeSuggestions" class="mb-0"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div id="routePlaceholder" class="card shadow-sm">
+            <div class="card-body text-center py-5 text-muted">
+                <i class="bi bi-map display-4 d-block mb-3"></i>
+                <p>Enter source and destination to compare routes and get AI-powered recommendations.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/route.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Profile - Smart Traffic AI{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">User Profile</h2>
+
+<div class="row g-4">
+
+    <!-- Column 1: Profile Information -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white fw-semibold">Profile Information</div>
+            <div class="card-body">
+                <div id="profileAlert" class="alert d-none"></div>
+                <form id="profileForm">
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" id="profileUsername" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-control" name="full_name" id="profileFullName">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" id="profileEmail">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Phone number</label>
+                        <input type="tel" class="form-control" name="phone_number" id="profilePhone"
+                               placeholder="e.g. 9226984033" pattern="[0-9]{10}" maxlength="10">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">City</label>
+                        <select class="form-select" name="city" id="profileCity">
+                            <option>Mumbai</option><option>Delhi</option><option>Bangalore</option>
+                            <option>Hyderabad</option><option>Chennai</option><option>Kolkata</option>
+                            <option>Pune</option><option>Ahmedabad</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">When I search routes, prefer:</label>
+                        <select class="form-select" name="route_preference" id="profileRoutePref">
+                            <option value="fastest">Always show me the fastest route</option>
+                            <option value="fuel">Prefer routes that save fuel</option>
+                            <option value="avoid_tolls">Avoid toll roads when possible</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Update Profile</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Column 2: Account Statistics + Submit Feedback -->
+    <div class="col-lg-4 d-flex flex-column gap-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold">Account Statistics</div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 mb-3">
+                        <div class="stat-value text-primary" id="profilePredictions">-</div>
+                        <div class="text-muted">Predictions Made</div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="stat-value text-success" id="profileTrips">-</div>
+                        <div class="text-muted">Trips Planned</div>
+                    </div>
+                </div>
+                <hr>
+                <p class="mb-1"><strong>Member Since:</strong> <span id="memberSince">-</span></p>
+                <p class="mb-0"><strong>Last Login:</strong> <span id="lastLogin">-</span></p>
+            </div>
+        </div>
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold">Submit Feedback</div>
+            <div class="card-body">
+                <form id="feedbackForm">
+                    <div class="mb-3">
+                        <label class="form-label">Rating</label>
+                        <select class="form-select" name="rating">
+                            <option value="5">5 - Excellent</option>
+                            <option value="4">4 - Good</option>
+                            <option value="3">3 - Average</option>
+                            <option value="2">2 - Poor</option>
+                            <option value="1">1 - Very Poor</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Comment</label>
+                        <textarea class="form-control" name="comment" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-outline-primary">Submit Feedback</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Column 3: Change Password + Danger Zone -->
+    <div class="col-lg-4 d-flex flex-column gap-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold">Change Password</div>
+            <div class="card-body">
+                <div id="pwdAlert" class="alert d-none"></div>
+                <form id="changePwdForm">
+                    <div class="mb-3">
+                        <label class="form-label">Current Password</label>
+                        <input type="password" class="form-control" name="current_password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">New Password</label>
+                        <input type="password" class="form-control" name="new_password" required minlength="6">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Confirm New Password</label>
+                        <input type="password" class="form-control" name="confirm_password" required minlength="6">
+                    </div>
+                    <button type="submit" class="btn btn-warning">Update Password</button>
+                </form>
+            </div>
+        </div>
+        <div class="card shadow-sm border-danger">
+            <div class="card-header bg-danger text-white fw-semibold">Danger Zone</div>
+            <div class="card-body">
+                <p class="text-muted mb-3">Permanently delete your account and all your data. This action cannot be undone.</p>
+                <button class="btn btn-outline-danger" id="deleteAccountBtn" type="button">
+                    <i class="bi bi-trash3"></i> Delete My Account
+                </button>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/profile.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Login - Smart Traffic AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow border-0">
+            <div class="card-body p-4">
+                <h3 class="text-center mb-4">Login</h3>
+                <div id="loginAlert" class="alert d-none"></div>
+                <form id="loginForm">
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" name="password" required>
+                    </div>
+                    <div class="mb-3 d-flex justify-content-between align-items-center">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="remember_me" id="rememberMe">
+                            <label class="form-check-label" for="rememberMe">Remember me</label>
+                        </div>
+                        <a href="{{ url_for('pages.forgot_password') }}" class="text-sm">Forgot password?</a>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Login</button>
+                </form>
+                <p class="text-center mt-3 mb-0">Don't have an account? <a href="{{ url_for('pages.register') }}">Register</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const alertEl = document.getElementById('loginAlert');
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = 'Logging in...';
+    alertEl.classList.add('d-none');
+    try {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                username: form.username.value,
+                password: form.password.value,
+                remember_me: form.remember_me.checked
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            window.location.href = '/prediction';
+        } else {
+            alertEl.className = 'alert alert-danger';
+            alertEl.textContent = data.message || 'Login failed';
+            alertEl.classList.remove('d-none');
+        }
+    } catch (err) {
+        alertEl.className = 'alert alert-danger';
+        alertEl.textContent = 'Cannot reach server. Run: python run.py';
+        alertEl.classList.remove('d-none');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Login';
+    }
+});
+</script>
+{% endblock %}

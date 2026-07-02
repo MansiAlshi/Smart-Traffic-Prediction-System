@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Commute Planner - Smart Traffic AI{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h2 class="mb-0"><i class="bi bi-house-door me-2"></i>Daily Commute Planner</h2>
+    <a href="{{ url_for('pages.prediction') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Back to Prediction
+    </a>
+</div>
+
+<div class="row g-4">
+    <!-- Save Commute -->
+    <div class="col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold">Save Your Daily Commute</div>
+            <div class="card-body">
+                <form id="saveCommuteForm">
+                    <div class="mb-3">
+                        <label class="form-label">Home / Origin</label>
+                        <input type="text" class="form-control" id="commuteHome" placeholder="e.g. Murbad" required list="cityList">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Office / Destination</label>
+                        <input type="text" class="form-control" id="commuteWork" placeholder="e.g. Kalyan" required list="cityList">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Usual Departure Time</label>
+                        <input type="time" class="form-control" id="commuteTime" value="09:00">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Preferred Road Type</label>
+                        <select class="form-select" id="commuteRoad">
+                            <option>Highway</option><option>Urban</option><option>Rural</option>
+                            <option>Expressway</option><option>Suburban</option>
+                        </select>
+                    </div>
+                    <datalist id="cityList">
+                        <option value="Mumbai"><option value="Pune"><option value="Delhi">
+                        <option value="Kalyan"><option value="Murbad"><option value="Thane">
+                        <option value="Navi Mumbai"><option value="Bangalore"><option value="Hyderabad">
+                    </datalist>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-save"></i> Save Commute
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- One-click Predict -->
+    <div class="col-lg-7">
+        <div class="card shadow-sm mb-3" id="savedCommuteCard">
+            <div class="card-header bg-white fw-semibold">Your Saved Commute</div>
+            <div class="card-body" id="savedCommuteBody">
+                <p class="text-muted">No commute saved yet. Fill in the form on the left.</p>
+            </div>
+        </div>
+
+        <!-- Today's Prediction Result -->
+        <div class="card shadow-sm d-none" id="commutePredCard">
+            <div class="card-header bg-white fw-semibold">Today's Commute Prediction</div>
+            <div class="card-body text-center" id="commutePredBody"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const COMMUTE_KEY = 'smarttraffic_commute';
+
+function loadSaved() {
+    const saved = JSON.parse(localStorage.getItem(COMMUTE_KEY) || 'null');
+    if (!saved) return;
+
+    document.getElementById('commuteHome').value  = saved.home;
+    document.getElementById('commuteWork').value  = saved.work;
+    document.getElementById('commuteTime').value  = saved.time;
+    document.getElementById('commuteRoad').value  = saved.road;
+
+    document.getElementById('savedCommuteBody').innerHTML = `
+        <div class="d-flex flex-wrap gap-3 align-items-center mb-3">
+            <div><i class="bi bi-house-door text-primary me-1"></i><strong>${saved.home}</strong></div>
+            <i class="bi bi-arrow-right text-muted"></i>
+            <div><i class="bi bi-building text-success me-1"></i><strong>${saved.work}</strong></div>
+            <div class="ms-auto text-muted small"><i class="bi bi-clock me-1"></i>${saved.time} · ${saved.road}</div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-primary" id="predictNowBtn">
+                <i class="bi bi-lightning-charge"></i> Predict Today's Commute
+            </button>
+            <button class="btn btn-outline-danger btn-sm" id="deleteCommuteBtn">
+                <i class="bi bi-trash3"></i> Delete
+            </button>
+        </div>
+    `;
+
+    document.getElementById('predictNowBtn').addEventListener('click', () => predictCommute(saved));
+    document.getElementById('deleteCommuteBtn').addEventListener('click', deleteCommute);
+}
+
+async function predictCommute(saved) {
+    const btn = document.getElementById('predictNowBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Predicting...';
+
+    const now = new Date();
+    try {
+        const data = await apiPost('/api/predict', {
+            source: saved.home,
+            destination: saved.work,
+            weather_condition: 'Clear',
+            road_type: saved.road,
+            travel_date: now.toISOString().slice(0, 10),
+            travel_time: saved.time,
+            festival_indicator: 0
+        });
+
+        const card = document.getElementById('commutePredCard');
+        const body = document.getElementById('commutePredBody');
+        card.classList.remove('d-none');
+
+        if (!data.success) {
+            body.innerHTML = `<div class="alert alert-danger">${data.message || 'Prediction failed'}</div>`;
+            return;
+        }
+
+        const r = data.result;
+        const colMap = { Low: 'success', Medium: 'warning', High: 'danger' };
+        const col = colMap[r.predicted_congestion] || 'secondary';
+        body.innerHTML = `
+            <div class="congestion-badge congestion-${r.predicted_congestion.toLowerCase()} mb-3">${r.predicted_congestion}</div>
+            <div class="row g-2 justify-content-center">
+                <div class="col-4"><div class="result-metric"><div class="metric-value">${(parseFloat(r.confidence_score)*100).toFixed(1)}%</div><div class="metric-label">Confidence</div></div></div>
+                <div class="col-4"><div class="result-metric"><div class="metric-value">${r.traffic_risk}</div><div class="metric-label">Risk</div></div></div>
+            </div>
+            <div class="mt-3 text-muted small">Predicted at ${now.toLocaleTimeString()}</div>
+        `;
+        showToast('Commute prediction ready!', 'success');
+    } catch {
+        showToast('Prediction failed', 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-lightning-charge"></i> Predict Today\'s Commute';
+    }
+}
+
+function deleteCommute() {
+    if (!confirm('Delete your saved commute?')) return;
+    localStorage.removeItem(COMMUTE_KEY);
+    document.getElementById('savedCommuteBody').innerHTML = '<p class="text-muted">No commute saved yet. Fill in the form on the left.</p>';
+    document.getElementById('commutePredCard').classList.add('d-none');
+    showToast('Commute deleted', 'info');
+}
+
+document.getElementById('saveCommuteForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const data = {
+        home: document.getElementById('commuteHome').value.trim(),
+        work: document.getElementById('commuteWork').value.trim(),
+        time: document.getElementById('commuteTime').value,
+        road: document.getElementById('commuteRoad').value
+    };
+    localStorage.setItem(COMMUTE_KEY, JSON.stringify(data));
+    showToast('Commute saved successfully!', 'success');
+    loadSaved();
+});
+
+document.addEventListener('DOMContentLoaded', loadSaved);
+</script>
+{% endblock %}

@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Traffic Prediction - Smart Traffic AI{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Traffic Congestion Prediction</h2>
+
+<div class="row g-4">
+    <div class="col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-semibold">Input Parameters</div>
+            <div class="card-body">
+                <form id="predictionForm">
+                    <div class="mb-3">
+                        <label class="form-label">Source</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="source" placeholder="e.g. Murbad" required list="cityList">
+                            <button type="button" class="btn btn-outline-info" id="locBtn" title="Use my current location">
+                                <i class="bi bi-geo-alt-fill"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="swapBtn" title="Swap source and destination">
+                                <i class="bi bi-arrow-down-up"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Destination</label>
+                        <input type="text" class="form-control" name="destination" placeholder="e.g. Kalyan" required list="cityList">
+                    </div>
+                    <datalist id="cityList">
+                        <option value="Mumbai"><option value="Pune"><option value="Delhi">
+                        <option value="Kalyan"><option value="Murbad"><option value="Thane">
+                        <option value="Navi Mumbai"><option value="Bangalore"><option value="Hyderabad">
+                    </datalist>
+                    <div class="mb-3">
+                        <label class="form-label">Weather Condition</label>
+                        <div class="input-group">
+                            <select class="form-select" name="weather_condition" required>
+                                <option>Clear</option><option>Cloudy</option><option>Rain</option>
+                                <option>Fog</option><option>Storm</option><option>Haze</option>
+                            </select>
+                            <button type="button" class="btn btn-outline-info" id="weatherBtn" title="Auto-detect current weather">
+                                <i class="bi bi-cloud-sun"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Road Type</label>
+                        <select class="form-select" name="road_type" required>
+                            <option>Highway</option><option>Urban</option><option>Rural</option>
+                            <option>Expressway</option><option>Suburban</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Date</label>
+                            <input type="date" class="form-control" name="travel_date" required>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Time</label>
+                            <input type="time" class="form-control" name="travel_time" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-sm btn-outline-info w-100" id="nowBtn">
+                            <i class="bi bi-clock"></i> Use Current Date &amp; Time
+                        </button>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="festival_indicator" id="festival">
+                        <label class="form-check-label" for="festival">Festival Day</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-lightning-charge"></i> Predict Congestion
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Commute Planner quick-use -->
+        <div id="commuteCard" class="card shadow-sm mt-3 d-none">
+            <div class="card-header bg-white fw-semibold"><i class="bi bi-house-door me-1"></i>Saved Commute</div>
+            <div class="card-body py-2 d-flex align-items-center justify-content-between">
+                <small id="commuteLabel" class="text-muted"></small>
+                <button class="btn btn-sm btn-primary" id="predictCommute">
+                    <i class="bi bi-lightning-charge"></i> Predict
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div id="placeholderPanel" class="card shadow-sm">
+            <div class="card-body text-center py-5 text-muted">
+                <i class="bi bi-bar-chart-line fs-1 d-block mb-3"></i>
+                Fill in the form and click <strong>Predict Congestion</strong> to see results.
+            </div>
+        </div>
+
+        <div id="resultPanel" class="d-none">
+            <div class="card shadow-sm mb-3">
+                <div class="card-body text-center">
+                    <div id="congestionBadge" class="congestion-badge mb-2">-</div>
+                    <div class="row mt-3 g-2">
+                        <div class="col-4">
+                            <div class="result-metric">
+                                <div class="metric-value" id="confidenceScore">-</div>
+                                <div class="metric-label">Confidence</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="result-metric">
+                                <div class="metric-value" id="trafficRisk">-</div>
+                                <div class="metric-label">Traffic Risk</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="result-metric">
+                                <div class="metric-value" id="predId">-</div>
+                                <div class="metric-label">Prediction ID</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <canvas id="probChart" height="140"></canvas>
+                </div>
+            </div>
+            <div id="predictionRouteAlert" class="alert alert-info d-none"></div>
+            <div id="routeMapPanel" class="card shadow-sm mb-3 d-none">
+                <div class="card-body p-2">
+                    <div id="predictionRouteMap" class="map-container-sm"></div>
+                </div>
+            </div>
+        </div>
+        </div>
+</div>
+
+<div id="suggestionsPanel" class="d-none mt-3">
+    <div class="card shadow-sm">
+        <div class="card-header bg-white fw-semibold">AI Suggestions</div>
+        <div class="card-body">
+            <ul class="list-group list-group-flush" id="suggestionsList"></ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='js/prediction.js') }}"></script>
+{% endblock %}

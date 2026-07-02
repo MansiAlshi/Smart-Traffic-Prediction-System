@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Register - Smart Traffic AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow border-0">
+            <div class="card-body p-4">
+                <h3 class="text-center mb-4">Create Account</h3>
+                <div id="regAlert" class="alert d-none"></div>
+                <form id="registerForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Username</label>
+                            <input type="text" class="form-control" name="username" required minlength="3">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Full Name</label>
+                            <input type="text" class="form-control" name="full_name">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Phone Number</label>
+                        <input type="tel" class="form-control" name="phone_number"
+                               placeholder="10-digit mobile number" pattern="[6-9][0-9]{9}" maxlength="10">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Password</label>
+                            <input type="password" class="form-control" name="password" required minlength="6">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">City</label>
+                            <select class="form-select" name="city">
+                                <option>Mumbai</option><option>Delhi</option><option>Bangalore</option>
+                                <option>Hyderabad</option><option>Chennai</option><option>Kolkata</option>
+                                <option>Pune</option><option>Ahmedabad</option><option>Jaipur</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Register</button>
+                </form>
+                <p class="text-center mt-3 mb-0">Already have an account? <a href="{{ url_for('pages.login') }}">Login</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('registerForm');
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const alertEl = document.getElementById('regAlert');
+        const btn = form.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.textContent = 'Registering...';
+        alertEl.classList.add('d-none');
+
+        try {
+            const body = Object.fromEntries(new FormData(form));
+            const res = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+            let data;
+            try {
+                data = await res.json();
+            } catch {
+                throw new Error('Server error. Run: python run.py then open http://127.0.0.1:5000/register');
+            }
+            if (data.success) {
+                alertEl.className = 'alert alert-success';
+                alertEl.textContent = 'Registration successful! Redirecting to login...';
+                alertEl.classList.remove('d-none');
+                setTimeout(() => { window.location.href = '/login'; }, 1500);
+                return;
+            }
+            alertEl.className = 'alert alert-danger';
+            alertEl.textContent = data.errors ? data.errors.join(', ') : (data.message || 'Registration failed');
+            alertEl.classList.remove('d-none');
+        } catch (err) {
+            alertEl.className = 'alert alert-danger';
+            alertEl.textContent = err.message || 'Cannot reach server. Run: python run.py';
+            alertEl.classList.remove('d-none');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Register';
+        }
+    });
+});
+</script>
+{% endblock %}
