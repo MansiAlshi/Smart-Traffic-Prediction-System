@@ -4,6 +4,9 @@ from flask import g, current_app
 
 def get_db():
     if 'db' not in g:
+        # Aiven and most hosted MySQL providers require SSL
+        use_ssl = current_app.config.get('MYSQL_SSL', False)
+        ssl_params = {'ssl': {}} if use_ssl else {}
         g.db = pymysql.connect(
             host=current_app.config['MYSQL_HOST'],
             user=current_app.config['MYSQL_USER'],
@@ -13,6 +16,7 @@ def get_db():
             charset='utf8mb4',
             cursorclass=pymysql.cursors.DictCursor,
             autocommit=False,
+            **ssl_params,
         )
     return g.db
 

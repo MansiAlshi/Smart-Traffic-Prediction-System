@@ -14,6 +14,7 @@ class Config:
     MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', '')
     MYSQL_DB = os.getenv('MYSQL_DB', 'smart_traffic_db')
     MYSQL_PORT = int(os.getenv('MYSQL_PORT', 3306))
+    MYSQL_SSL = os.getenv('MYSQL_SSL', 'false').lower() == 'true'
 
     MODEL_PATH = os.path.join(BASE_DIR, 'ml', 'models', 'traffic_model.joblib')
     ENCODER_PATH = os.path.join(BASE_DIR, 'ml', 'models', 'encoders.joblib')

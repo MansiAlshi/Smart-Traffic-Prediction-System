@@ -180,6 +180,8 @@ async function fetchWeatherByCoords(lat, lon) {
 function getCurrentLocation(callback) {
     if (!navigator.geolocation) {
         showToast('Geolocation is not supported by your browser', 'warning');
+        // Fallback: try IP-based location
+        _ipLocationFallback(callback);
         return;
     }
     showToast('Detecting your location...', 'info', 2000);
@@ -197,14 +199,53 @@ function getCurrentLocation(callback) {
                     || data.address?.village
                     || data.address?.county
                     || '';
-                callback({ city, lat, lon });
+                if (city) {
+                    callback({ city, lat, lon });
+                } else {
+                    // Nominatim returned no city name — try IP fallback
+                    showToast('GPS found but city name unclear. Trying IP location...', 'info', 2000);
+                    _ipLocationFallback(callback);
+                }
             } catch {
-                callback({ city: '', lat, lon });
-                showToast('Could not reverse-geocode location', 'warning');
+                // Nominatim failed — try IP fallback
+                showToast('Reverse geocode failed. Trying IP location...', 'info', 2000);
+                _ipLocationFallback(callback);
             }
         },
-        () => showToast('Location access denied. Please allow location in browser settings.', 'warning')
+        (err) => {
+            let msg = 'Location access denied.';
+            if (err.code === 1) msg = 'Location permission denied. Trying IP-based location...';
+            else if (err.code === 2) msg = 'Location unavailable. Trying IP-based location...';
+            else if (err.code === 3) msg = 'Location timed out. Trying IP-based location...';
+            showToast(msg, 'warning', 3000);
+            // Fallback to IP-based geolocation
+            _ipLocationFallback(callback);
+        },
+        { timeout: 10000, maximumAge: 60000, enableHighAccuracy: false }
     );
+}
+
+// IP-based geolocation fallback (no browser permission needed)
+async function _ipLocationFallback(callback) {
+    try {
+        const res = await fetch('https://ipapi.co/json/');
+        if (res.ok) {
+            const data = await res.json();
+            const city = data.city || data.region || '';
+            const lat  = data.latitude  || null;
+            const lon  = data.longitude || null;
+            if (city) {
+                showToast(`Location detected via IP: ${city}`, 'info', 2500);
+                callback({ city, lat, lon });
+                return;
+            }
+        }
+    } catch (e) {
+        console.warn('IP location fallback failed:', e);
+    }
+    // All methods failed
+    showToast('Could not detect location. Please enter it manually.', 'warning');
+    callback({ city: '', lat: null, lon: null });
 }
 
 // ══════════════════════════════════════════════════════════

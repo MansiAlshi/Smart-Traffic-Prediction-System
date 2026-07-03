@@ -26,12 +26,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Live location → auto-fill Source
     document.getElementById('routeLocBtn')?.addEventListener('click', () => {
+        const btn = document.getElementById('routeLocBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        }
         getCurrentLocation(({ city, lat, lon }) => {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-geo-alt-fill"></i>';
+            }
             if (city) { form.source.value = city; showToast(`Location set to: ${city}`, 'success'); }
-            else showToast('Could not detect city. Enter manually.', 'warning');
-            fetchWeatherByCoords(lat, lon).then(wx => {
-                if (wx) { form.weather_condition.value = wx; showToast(`Weather set to: ${wx}`, 'info'); }
-            });
+            // Only fetch weather if we have coordinates
+            if (lat != null && lon != null) {
+                fetchWeatherByCoords(lat, lon).then(wx => {
+                    if (wx) { form.weather_condition.value = wx; showToast(`Weather set to: ${wx}`, 'info'); }
+                });
+            }
         });
     });
 
