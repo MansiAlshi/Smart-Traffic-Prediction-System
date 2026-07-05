@@ -11,6 +11,72 @@ document.addEventListener('DOMContentLoaded', () => {
     form.travel_date.value = new Date().toISOString().slice(0, 10);
     form.travel_time.value = new Date().toTimeString().slice(0, 5);
 
+    // Restore last prediction result if user navigated away and came back
+    const saved = JSON.parse(localStorage.getItem(getUserKey('smarttraffic_last_prediction')) || 'null');
+    if (saved && saved.result) {
+        // Restore form inputs
+        if (saved.form) {
+            if (saved.form.source) form.source.value = saved.form.source;
+            if (saved.form.destination) form.destination.value = saved.form.destination;
+            if (saved.form.weather_condition) form.weather_condition.value = saved.form.weather_condition;
+            if (saved.form.road_type) form.road_type.value = saved.form.road_type;
+            if (saved.form.travel_date) form.travel_date.value = saved.form.travel_date;
+            if (saved.form.travel_time) form.travel_time.value = saved.form.travel_time;
+            if (saved.form.festival_indicator !== undefined)
+                form.festival_indicator.checked = saved.form.festival_indicator === 1;
+            // Re-fetch live weather for the restored city (silently update, no toast)
+            if (saved.form.source) {
+                fetchCurrentWeather(saved.form.source).then(wx => { if (wx) setWeatherSelect(form, wx); }
+                );
+            }
+        }
+        // Restore result panel
+        showPredictionResult(saved.result);
+    }
+
+    // Auto-detect location on page load if source is still empty
+    if (!form.source.value.trim()) {
+        getCurrentLocation(({ city, lat, lon, source }) => {
+            if (city && !form.source.value.trim()) {
+                form.source.value = city;
+                // Only show toast for GPS — IP fallback already shows its own toast
+                if (source === 'gps') showToast(`📍 Location detected: ${city}`, 'success', 2500);
+                const wxPromise = (lat != null && lon != null)
+                    ? fetchWeatherByCoords(lat, lon)
+                    : fetchCurrentWeather(city);
+                wxPromise.then(wx => {
+                    if (wx) {
+                        setWeatherSelect(form, wx);
+                        showToast(`☁️ Weather auto-set: ${wx}`, 'info', 2000);
+                    }
+                });
+            }
+        });
+    }
+
+    // Live Location button → same as route.js
+    const locBtn = document.getElementById('locBtn');
+    if (locBtn) {
+        locBtn.addEventListener('click', () => {
+            locBtn.disabled = true;
+            locBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            getCurrentLocation(({ city, lat, lon }) => {
+                locBtn.disabled = false;
+                locBtn.innerHTML = '<i class="bi bi-geo-alt-fill"></i>';
+                if (city) {
+                    form.source.value = city;
+                    showToast(`📍 Location set to: ${city}`, 'success');
+                } else {
+                    showToast('Could not detect city. Please enter manually.', 'warning');
+                }
+                if (lat != null && lon != null) {
+                    fetchWeatherByCoords(lat, lon).then(wx => { if (wx) setWeatherSelect(form, wx); });
+                }
+            });
+        });
+    }
+
+
     // Swap source ↔ destination
     document.getElementById('swapBtn')?.addEventListener('click', () => {
         const tmp = form.source.value;
@@ -22,22 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('nowBtn')?.addEventListener('click', () => {
         form.travel_date.value = new Date().toISOString().slice(0, 10);
         form.travel_time.value = new Date().toTimeString().slice(0, 5);
-    });
-
-    // Live Location → auto-fill Source
-    document.getElementById('locBtn')?.addEventListener('click', () => {
-        getCurrentLocation(({ city, lat, lon }) => {
-            if (city) {
-                form.source.value = city;
-                showToast(`Location set to: ${city}`, 'success');
-            } else {
-                showToast('Could not detect city name. Enter manually.', 'warning');
-            }
-            // Also auto-fill weather from coords
-            fetchWeatherByCoords(lat, lon).then(wx => {
-                if (wx) setWeatherSelect(form, wx);
-            });
-        });
     });
 
     // Weather auto-fill (manual button click)
@@ -79,21 +129,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Destination field — fetch weather only if source is empty
     form.destination.addEventListener('blur', () => {
         clearTimeout(weatherFetchTimer);
-        const src  = form.source.value.trim();
+        const src = form.source.value.trim();
         const dest = form.destination.value.trim();
         if (!src && dest) weatherFetchTimer = setTimeout(() => autoFetchWeather(dest), 400);
     });
 
     // Commute planner quick-use
-    const saved = JSON.parse(localStorage.getItem('smarttraffic_commute') || 'null');
-    if (saved) {
+    const savedCommute = JSON.parse(localStorage.getItem(getUserKey('smarttraffic_commute')) || 'null');
+    if (savedCommute) {
         document.getElementById('commuteCard').classList.remove('d-none');
-        document.getElementById('commuteLabel').textContent = `${saved.home} → ${saved.work} at ${saved.time}`;
+        document.getElementById('commuteLabel').textContent = `${savedCommute.home} → ${savedCommute.work} at ${savedCommute.time}`;
         document.getElementById('predictCommute').addEventListener('click', () => {
-            form.source.value      = saved.home;
-            form.destination.value = saved.work;
-            form.travel_time.value = saved.time;
-            form.road_type.value   = saved.road;
+            form.source.value = savedCommute.home;
+            form.destination.value = savedCommute.work;
+            form.travel_time.value = savedCommute.time;
+            form.road_type.value = savedCommute.road;
             form.travel_date.value = new Date().toISOString().slice(0, 10);
             form.dispatchEvent(new Event('submit'));
         });
@@ -103,12 +153,12 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const body = {
-            source:             form.source.value.trim(),
-            destination:        form.destination.value.trim(),
-            weather_condition:  form.weather_condition.value,
-            road_type:          form.road_type.value,
-            travel_date:        form.travel_date.value,
-            travel_time:        form.travel_time.value,
+            source: form.source.value.trim(),
+            destination: form.destination.value.trim(),
+            weather_condition: form.weather_condition.value,
+            road_type: form.road_type.value,
+            travel_date: form.travel_date.value,
+            travel_time: form.travel_time.value,
             festival_indicator: form.festival_indicator.checked ? 1 : 0,
         };
         const btn = form.querySelector('button[type="submit"]');
@@ -120,6 +170,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 showToast(data.errors ? data.errors.join(', ') : (data.message || 'Prediction failed'), 'danger');
                 return;
             }
+            // Save result + form inputs to localStorage so they persist across page navigation
+            localStorage.setItem(getUserKey('smarttraffic_last_prediction'), JSON.stringify({
+                result: data.result,
+                form: body
+            }));
             showPredictionResult(data.result);
         } finally {
             btn.disabled = false;
@@ -169,14 +224,27 @@ function showPredictionResult(result) {
 }
 
 function renderProbChart(probabilities) {
-    const labels = Object.keys(probabilities);
-    const values = Object.values(probabilities);
+    const order = ['Low', 'Medium', 'High'];
+    const colorMap = {
+        'Low': '#198754',    // Green
+        'Medium': '#ffc107', // Yellow/Orange
+        'High': '#dc3545'    // Red
+    };
+
+    const labels = order.filter(k => k in probabilities);
+    const values = labels.map(k => probabilities[k]);
+    const backgroundColors = labels.map(k => colorMap[k]);
+
     if (probChart) probChart.destroy();
     probChart = new Chart(document.getElementById('probChart'), {
         type: 'bar',
         data: {
             labels,
-            datasets: [{ label: 'Probability', data: values, backgroundColor: ['#198754', '#ffc107', '#dc3545'] }]
+            datasets: [{ 
+                label: 'Probability', 
+                data: values, 
+                backgroundColor: backgroundColors 
+            }]
         },
         options: {
             responsive: true,
@@ -217,15 +285,33 @@ function renderPredictionMap(route) {
 
 function renderSuggestions(result) {
     const suggestions = [];
-    if (result.route?.explanation) suggestions.push(result.route.explanation);
-    if (result.predicted_congestion === 'High') {
-        suggestions.push('Leave 15 minutes earlier to account for heavy congestion.');
-        suggestions.push('Consider alternate routes with lower predicted traffic.');
+    const congestion = result.predicted_congestion;
+    const risk = result.traffic_risk;
+
+    // ── Overall congestion advice (based on the main prediction) ──
+    if (congestion === 'High') {
+        suggestions.push('🔴 <strong>Heavy congestion predicted</strong> — leave at least 15–20 minutes earlier than usual.');
+        suggestions.push('Consider alternate routes or off-peak travel times to avoid delays.');
+    } else if (congestion === 'Medium') {
+        suggestions.push('🟡 <strong>Moderate congestion expected</strong> — plan a buffer of 10 minutes for your journey.');
+    } else if (congestion === 'Low') {
+        suggestions.push('🟢 <strong>Light traffic conditions</strong> — enjoy a smooth journey!');
     }
-    if (result.traffic_risk === 'High') suggestions.push('High traffic risk — drive cautiously and maintain safe distance.');
-    if (result.predicted_congestion === 'Medium') suggestions.push('Moderate traffic expected — plan a buffer of 10 minutes.');
-    if (result.predicted_congestion === 'Low') suggestions.push('Traffic conditions look favorable — enjoy a smooth journey!');
+
+    // ── Risk-based advice ──
+    if (risk === 'High') {
+        suggestions.push('⚠️ High traffic risk detected — drive cautiously and maintain a safe following distance.');
+    }
+
+    // ── Route recommendation (separate scope — this is per-route, not overall) ──
+    if (result.route?.explanation) {
+        // Strip out any embedded "Predicted congestion: X" clause to avoid confusion
+        // and re-state it clearly as route-level info
+        suggestions.push(`🛣️ <strong>Best route:</strong> ${result.route.explanation}`);
+    }
+
     document.getElementById('suggestionsList').innerHTML = suggestions.map(s =>
         `<li class="list-group-item"><i class="bi bi-lightbulb text-warning me-2"></i>${s}</li>`
     ).join('');
 }
+

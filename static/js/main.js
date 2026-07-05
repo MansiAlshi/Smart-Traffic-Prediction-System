@@ -3,14 +3,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async () => {
+            const meta = document.querySelector('meta[name="user-id"]');
+            const userId = meta ? meta.getAttribute('content') : '';
+            if (userId) {
+                localStorage.removeItem(`smarttraffic_last_prediction_${userId}`);
+                localStorage.removeItem(`smarttraffic_last_route_${userId}`);
+                localStorage.removeItem(`smarttraffic_commute_${userId}`);
+            }
             await fetch('/api/auth/logout', { method: 'POST' });
             window.location.href = '/login';
         });
     }
 
+
     // ── Dark mode ───────────────────────────────────────────
     const darkToggle = document.getElementById('darkModeToggle');
-    const darkIcon   = document.getElementById('darkModeIcon');
+    const darkIcon = document.getElementById('darkModeIcon');
     function applyDark(on) {
         document.body.classList.toggle('dark-mode', on);
         if (darkIcon) darkIcon.className = on ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
@@ -39,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 badge.textContent = data.count;
                 predLink.appendChild(badge);
             }
-        }).catch(() => {});
+        }).catch(() => { });
     }
 });
 
@@ -55,9 +63,9 @@ function showToast(message, type = 'success', duration = 3500) {
     }
     const icons = {
         success: 'bi-check-circle-fill',
-        danger:  'bi-x-circle-fill',
+        danger: 'bi-x-circle-fill',
         warning: 'bi-exclamation-triangle-fill',
-        info:    'bi-info-circle-fill'
+        info: 'bi-info-circle-fill'
     };
     const toast = document.createElement('div');
     toast.className = `toast-item toast-${type}`;
@@ -158,95 +166,139 @@ async function fetchCurrentWeather(cityName) {
 
 // For coords-based fetch (used by live location button)
 async function fetchWeatherByCoords(lat, lon) {
-    // Reverse-geocode to city, then use our backend
+    // Reverse-geocode to city using full field set, then fetch weather
     try {
         const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=14&addressdetails=1`,
             { headers: { 'Accept-Language': 'en' } }
         );
         const data = await res.json();
-        const city = data.address?.city || data.address?.town || data.address?.village || data.address?.county || '';
+        const city = _nominatimCity(data.address); // uses all 9 address fields
         if (city) return await fetchCurrentWeather(city);
-        // If reverse-geocode fails, call backend with coords directly
-        const wxRes = await fetch(`/api/analytics/weather?city=Mumbai`); // safe default
-        const wxData = await wxRes.json();
-        return wxData.success ? wxData.weather : null;
-    } catch { return null; }
+    } catch { /* fall through */ }
+    return null;
 }
 
 // ══════════════════════════════════════════════════════════
 //  LIVE LOCATION (Geolocation + Nominatim reverse geocode)
 // ══════════════════════════════════════════════════════════
+
+// Extract best city name from a Nominatim address object.
+// Checks fields in priority order — small Indian towns often
+// appear in suburb / district / municipality rather than city.
+function _nominatimCity(address) {
+    return address?.city
+        || address?.town
+        || address?.municipality
+        || address?.city_district
+        || address?.suburb
+        || address?.village
+        || address?.district
+        || address?.hamlet
+        || address?.county
+        || '';
+}
+
 function getCurrentLocation(callback) {
     if (!navigator.geolocation) {
-        showToast('Geolocation is not supported by your browser', 'warning');
-        // Fallback: try IP-based location
+        showToast('Geolocation not supported. Using IP-based location...', 'warning', 2500);
         _ipLocationFallback(callback);
         return;
     }
-    showToast('Detecting your location...', 'info', 2000);
+    showToast('📡 Detecting your exact location via GPS...', 'info', 2000);
     navigator.geolocation.getCurrentPosition(
         async pos => {
             const { latitude: lat, longitude: lon } = pos.coords;
             try {
                 const res = await fetch(
-                    `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+                    `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=14&addressdetails=1`,
                     { headers: { 'Accept-Language': 'en' } }
                 );
                 const data = await res.json();
-                const city = data.address?.city
-                    || data.address?.town
-                    || data.address?.village
-                    || data.address?.county
-                    || '';
+                const city = _nominatimCity(data.address);
                 if (city) {
-                    callback({ city, lat, lon });
+                    callback({ city, lat, lon, source: 'gps' });
                 } else {
-                    // Nominatim returned no city name — try IP fallback
-                    showToast('GPS found but city name unclear. Trying IP location...', 'info', 2000);
+                    showToast('GPS found but city unclear. Trying IP location...', 'info', 2000);
                     _ipLocationFallback(callback);
                 }
             } catch {
-                // Nominatim failed — try IP fallback
                 showToast('Reverse geocode failed. Trying IP location...', 'info', 2000);
                 _ipLocationFallback(callback);
             }
         },
         (err) => {
-            let msg = 'Location access denied.';
-            if (err.code === 1) msg = 'Location permission denied. Trying IP-based location...';
-            else if (err.code === 2) msg = 'Location unavailable. Trying IP-based location...';
-            else if (err.code === 3) msg = 'Location timed out. Trying IP-based location...';
-            showToast(msg, 'warning', 3000);
-            // Fallback to IP-based geolocation
+            let msg = 'Location unavailable. Using IP-based location (may be approximate)...';
+            if (err.code === 1) msg = '⚠️ GPS permission denied. Using IP location (approximate)...';
+            else if (err.code === 3) msg = '⏱️ GPS timed out. Using IP location (approximate)...';
+            showToast(msg, 'warning', 3500);
             _ipLocationFallback(callback);
         },
-        { timeout: 10000, maximumAge: 60000, enableHighAccuracy: false }
+        { timeout: 15000, maximumAge: 30000, enableHighAccuracy: true }
     );
 }
 
-// IP-based geolocation fallback (no browser permission needed)
+// IP-based geolocation fallback — tries external APIs then our own backend proxy.
+// NOTE: IP geolocation reflects your ISP's registered location, which may differ
+// from your physical city by 10–50 km. Use the 📍 button for GPS accuracy.
 async function _ipLocationFallback(callback) {
-    try {
-        const res = await fetch('https://ipapi.co/json/');
-        if (res.ok) {
-            const data = await res.json();
-            const city = data.city || data.region || '';
-            const lat  = data.latitude  || null;
-            const lon  = data.longitude || null;
-            if (city) {
-                showToast(`Location detected via IP: ${city}`, 'info', 2500);
-                callback({ city, lat, lon });
+    const externalApis = [
+        async () => {
+            const r = await fetch('https://ipapi.co/json/');
+            const d = r.ok ? await r.json() : null;
+            if (d && !d.error && d.city) return { city: d.city, lat: d.latitude, lon: d.longitude };
+        },
+        async () => {
+            const r = await fetch('https://ipinfo.io/json');
+            const d = r.ok ? await r.json() : null;
+            if (d && d.city) {
+                const [lat, lon] = (d.loc || ',').split(',').map(Number);
+                return { city: d.city, lat: lat || null, lon: lon || null };
+            }
+        },
+        async () => {
+            const r = await fetch('https://ip-api.com/json/');
+            const d = r.ok ? await r.json() : null;
+            if (d && d.status === 'success' && d.city) return { city: d.city, lat: d.lat, lon: d.lon };
+        },
+    ];
+
+    for (const api of externalApis) {
+        try {
+            const result = await api();
+            if (result && result.city) {
+                // IP geolocation → warn user it may be approximate
+                showToast(
+                    `📍 IP location detected: <strong>${result.city}</strong> — ` +
+                    `may be approximate. Click 📍 for exact GPS.`,
+                    'warning', 5000
+                );
+                callback({ ...result, source: 'ip' });
                 return;
             }
+        } catch (e) { /* try next */ }
+    }
+
+    // Final fallback: server-side geoip proxy
+    try {
+        const r = await fetch('/api/analytics/geoip');
+        const d = r.ok ? await r.json() : null;
+        if (d && d.success && d.city) {
+            showToast(
+                `📍 IP location: <strong>${d.city}</strong> — may be approximate. Click 📍 for GPS.`,
+                'warning', 5000
+            );
+            callback({ city: d.city, lat: d.lat || null, lon: d.lon || null, source: 'ip' });
+            return;
         }
     } catch (e) {
-        console.warn('IP location fallback failed:', e);
+        console.warn('Backend geoip fallback failed:', e);
     }
-    // All methods failed
+
     showToast('Could not detect location. Please enter it manually.', 'warning');
-    callback({ city: '', lat: null, lon: null });
+    callback({ city: '', lat: null, lon: null, source: 'none' });
 }
+
 
 // ══════════════════════════════════════════════════════════
 //  HELPERS
@@ -275,3 +327,10 @@ function formatDateTime(value) {
     const d = new Date(String(value).replace(' ', 'T'));
     return isNaN(d.getTime()) ? value : d.toLocaleString();
 }
+
+function getUserKey(baseKey) {
+    const meta = document.querySelector('meta[name="user-id"]');
+    const userId = meta ? meta.getAttribute('content') : '';
+    return userId ? `${baseKey}_${userId}` : baseKey;
+}
+

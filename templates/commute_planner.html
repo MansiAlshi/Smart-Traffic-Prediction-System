@@ -71,7 +71,7 @@
 const COMMUTE_KEY = 'smarttraffic_commute';
 
 function loadSaved() {
-    const saved = JSON.parse(localStorage.getItem(COMMUTE_KEY) || 'null');
+    const saved = JSON.parse(localStorage.getItem(getUserKey(COMMUTE_KEY)) || 'null');
     if (!saved) return;
 
     document.getElementById('commuteHome').value  = saved.home;
@@ -148,7 +148,7 @@ async function predictCommute(saved) {
 
 function deleteCommute() {
     if (!confirm('Delete your saved commute?')) return;
-    localStorage.removeItem(COMMUTE_KEY);
+    localStorage.removeItem(getUserKey(COMMUTE_KEY));
     document.getElementById('savedCommuteBody').innerHTML = '<p class="text-muted">No commute saved yet. Fill in the form on the left.</p>';
     document.getElementById('commutePredCard').classList.add('d-none');
     showToast('Commute deleted', 'info');
@@ -162,7 +162,7 @@ document.getElementById('saveCommuteForm').addEventListener('submit', (e) => {
         time: document.getElementById('commuteTime').value,
         road: document.getElementById('commuteRoad').value
     };
-    localStorage.setItem(COMMUTE_KEY, JSON.stringify(data));
+    localStorage.setItem(getUserKey(COMMUTE_KEY), JSON.stringify(data));
     showToast('Commute saved successfully!', 'success');
     loadSaved();
 });

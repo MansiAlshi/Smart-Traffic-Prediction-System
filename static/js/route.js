@@ -14,8 +14,51 @@ document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const form = document.getElementById('routeForm');
     if (!form) return;
+
+    // ── Restore last route result if user navigated away and came back ──
+    const savedRoute = JSON.parse(localStorage.getItem(getUserKey('smarttraffic_last_route')) || 'null');
+    if (savedRoute && savedRoute.result) {
+        if (savedRoute.form) {
+            if (savedRoute.form.source)           form.source.value = savedRoute.form.source;
+            if (savedRoute.form.destination)      form.destination.value = savedRoute.form.destination;
+            if (savedRoute.form.weather_condition) form.weather_condition.value = savedRoute.form.weather_condition;
+            if (savedRoute.form.peak_hour_indicator !== undefined)
+                form.peak_hour_indicator.checked = savedRoute.form.peak_hour_indicator === 1;
+            if (savedRoute.form.festival_indicator !== undefined)
+                form.festival_indicator.checked = savedRoute.form.festival_indicator === 1;
+            // Silently refresh weather for the restored city
+            if (savedRoute.form.source) {
+                fetchCurrentWeather(savedRoute.form.source).then(wx => {
+                    if (wx) form.weather_condition.value = wx;
+                });
+            }
+        }
+        lastRouteData = savedRoute.result;
+        _showRouteResults(lastRouteData);
+    }
+
+    // URL params override saved source/dest (e.g. shared links)
     if (params.get('source')) form.source.value = params.get('source');
-    if (params.get('dest')) form.destination.value = params.get('dest');
+    if (params.get('dest'))   form.destination.value = params.get('dest');
+
+    // Auto-detect location on page load only if source is still empty
+    if (!form.source.value.trim()) {
+        getCurrentLocation(({ city, lat, lon, source }) => {
+            if (city && !form.source.value.trim()) {
+                form.source.value = city;
+                if (source === 'gps') showToast(`📍 Location detected: ${city}`, 'success', 2500);
+                const wxPromise = (lat != null && lon != null)
+                    ? fetchWeatherByCoords(lat, lon)
+                    : fetchCurrentWeather(city);
+                wxPromise.then(wx => {
+                    if (wx) {
+                        form.weather_condition.value = wx;
+                        showToast(`☁️ Weather auto-set: ${wx}`, 'info', 2000);
+                    }
+                });
+            }
+        });
+    }
 
     // Swap source ↔ destination
     document.getElementById('routeSwapBtn')?.addEventListener('click', () => {
@@ -108,17 +151,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             lastRouteData = data.result;
-            document.getElementById('routePlaceholder').classList.add('d-none');
-            document.getElementById('routeResults').classList.remove('d-none');
-            document.getElementById('saveRoutePanel').classList.remove('d-none');
 
-            document.getElementById('recommendationAlert').innerHTML =
-                `<i class="bi bi-check-circle me-2"></i><strong>${lastRouteData.recommended_route}</strong> — ${lastRouteData.explanation}`;
+            // Persist form + result so they survive page navigation
+            localStorage.setItem(getUserKey('smarttraffic_last_route'), JSON.stringify({
+                result: lastRouteData,
+                form: body
+            }));
 
-            renderRouteCards(lastRouteData.routes, lastRouteData.recommended_route);
-            renderDirections(lastRouteData.routes, lastRouteData.recommended_route);
-            renderRouteSuggestions(lastRouteData.suggestions);
-            renderRouteMap(lastRouteData.routes, lastRouteData.recommended_route);
+            _showRouteResults(lastRouteData);
         } finally {
             btn.disabled = false;
             btn.innerHTML = '<i class="bi bi-signpost-split"></i> Find Best Route';
@@ -145,16 +185,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.success) showToast('Route saved successfully!', 'success');
         else showToast(data.message || 'Failed to save route', 'danger');
     });
-
-    document.getElementById('shareRouteBtn')?.addEventListener('click', () => {
-        if (!lastRouteData) return;
-        const url = `${location.origin}/route-recommendation?source=${encodeURIComponent(lastRouteData.source)}&dest=${encodeURIComponent(lastRouteData.destination)}`;
-        navigator.clipboard.writeText(url)
-            .then(() => showToast('Route link copied to clipboard!', 'success'))
-            .catch(() => prompt('Copy this route link:', url));
-    });
 });
 
+
+
+// ── Show route results (used by both submit and localStorage restore) ──
+function _showRouteResults(data) {
+    document.getElementById('routePlaceholder').classList.add('d-none');
+    document.getElementById('routeResults').classList.remove('d-none');
+    document.getElementById('saveRoutePanel').classList.remove('d-none');
+
+    document.getElementById('recommendationAlert').innerHTML =
+        `<i class="bi bi-check-circle me-2"></i><strong>${data.recommended_route}</strong> — ${data.explanation}`;
+
+    renderRouteCards(data.routes, data.recommended_route);
+    renderDirections(data.routes, data.recommended_route);
+    renderRouteSuggestions(data.suggestions);
+    renderRouteMap(data.routes, data.recommended_route);
+}
 
 function renderRouteCards(routes, recommended) {
     const container = document.getElementById('routeCards');

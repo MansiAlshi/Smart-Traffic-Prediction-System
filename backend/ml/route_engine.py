@@ -1,6 +1,5 @@
 import json
 import math
-import random
 import urllib.parse
 import urllib.request
 from backend.ml.predictor import TrafficPredictor
@@ -292,7 +291,7 @@ class RouteEngine:
                 'peak_hour_indicator': context.get('peak_hour_indicator', 1),
                 'road_type': variant['road_type'],
                 'num_lanes': variant['lanes'],
-                'traffic_density': min(100, 40 + idx * 15 + random.uniform(-5, 10)),
+                'traffic_density': min(100, 40 + idx * 15),  # deterministic per-variant offset
             }
             prediction = self.predictor.predict(pred_input)
             congestion = prediction['predicted_congestion']

@@ -1,17 +1,50 @@
 from flask import Blueprint, request, jsonify, session
 from backend.services.analytics_service import get_heatmap_data
 import urllib.request
+import urllib.parse
 import json as _json
 
 analytics_bp = Blueprint('analytics_api', __name__, url_prefix='/api/analytics')
 
+
+@analytics_bp.route('/geoip', methods=['GET'])
+def geoip():
+    """Server-side IP geolocation — tries multiple providers, returns city name."""
+    import ssl
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+
+    apis = [
+        ('https://ipapi.co/json/',   lambda d: (d.get('city') or d.get('region',''), d.get('latitude'), d.get('longitude'))),
+        ('https://ipinfo.io/json',   lambda d: (d.get('city',''), *([float(x) for x in d['loc'].split(',')] if d.get('loc') else [None, None]))),
+        ('https://ip-api.com/json/', lambda d: (d.get('city','') if d.get('status')=='success' else '', d.get('lat'), d.get('lon'))),
+    ]
+
+    for url, extract in apis:
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'SmartTrafficAI/1.0'})
+            with urllib.request.urlopen(req, context=ctx, timeout=4) as r:
+                data = _json.loads(r.read())
+            if data.get('error'):
+                continue
+            city, lat, lon = extract(data)
+            if city:
+                return jsonify({'success': True, 'city': city, 'lat': lat, 'lon': lon})
+        except Exception:
+            continue
+
+    return jsonify({'success': False, 'message': 'Could not detect location'}), 200
+
+
 # Fallback: map small/unknown Indian cities → nearest major city for geocoding
+# Keys MUST be lowercase (matched via city.lower())
 CITY_ALIAS = {
-    'murbad': 'Thane', 'badlapur': 'Thane', 'ambernath': 'Thane',
+    'badlapur': 'Thane', 'ambernath': 'Thane',
     'ulhasnagar': 'Thane', 'dombivli': 'Thane', 'kalyan': 'Thane',
     'panvel': 'Navi Mumbai', 'khopoli': 'Pune', 'lonavala': 'Pune',
     'khandala': 'Pune', 'karjat': 'Pune', 'kasara': 'Nashik',
-    'igatpuri': 'Nashik', 'Manor': 'Mumbai',
+    'igatpuri': 'Nashik', 'manor': 'Mumbai',
 }
 
 
@@ -32,7 +65,7 @@ def get_weather():
         ctx.verify_mode = ssl.CERT_NONE
 
         geo_url = (f'https://geocoding-api.open-meteo.com/v1/search'
-                   f'?name={urllib.request.quote(lookup)}&count=1&language=en&format=json')
+                   f'?name={urllib.parse.quote(lookup)}&count=1&language=en&format=json')
         req = urllib.request.Request(geo_url, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req, context=ctx, timeout=3) as r:
             geo = _json.loads(r.read())
